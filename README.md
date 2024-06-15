@@ -34,17 +34,17 @@ The programm should:
  ## Installing Dependencies
  clone repository and execute the following in the terminal:
 ```bash
-  pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 ## Running the Program
 Run
 ```bash
-  python bm_fit.py
+python bm_fit.py
 ```
 in the terminal
 ## Testing the Program
 Run tests by executing the following in the terminal:
 ```bash
-  pytest
+pytest
 ```
 This project was originally implemented as part of the Python programming course at the Weizmann Institute of Science taught by Gabor Szabo
