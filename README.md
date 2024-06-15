@@ -18,7 +18,7 @@ the Z-spectrum can be modeled by a set of linear differential equations, called 
 
 Our lab conducts experiments that generate Z-spectra, then fits them to Bloch-mcConnell equations.
 ## Project Goal
-Take simulated Z-spectra of poly-L-lysine in water (supplied by the user)
+Take simulated or experimental Z-spectra (supplied by the user)
 and fit them to Bloch-McConnell equations, via nonlinear least squares.
 ## Technical Info
 The programm should:
