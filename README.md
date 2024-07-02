@@ -22,8 +22,8 @@ Take simulated or experimental Z-spectra (supplied by the user)
 and fit them to Bloch-McConnell equations, via nonlinear least squares.
 ## Technical Info
 The programm should:
-* let the user, though a GUI application:
-    - input the path to a csv file that contains Z-spectra that was measured/simulated at multiple irradiation amplitudes
+* let the user, through a GUI application:
+    - input the path to a csv file that contains Z-spectra that were measured/simulated at multiple irradiation amplitudes
     - input constants such as the irradiation duration and amplitude
     - select which model parameters to fit and which parameters to fix (along with their values)
 * fit the spectra to Bloch-McConnell equations and extract the model parameters
