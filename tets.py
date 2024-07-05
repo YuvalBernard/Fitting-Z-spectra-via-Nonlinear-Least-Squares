@@ -18,6 +18,7 @@ TITLE_COLOR = "#d08770"
 ENABLE_COLOR = "#a3be8c"
 DISABLE_COLOR = "#bf616a"
 DESCRIPTION_COLOR = "#ebcb8b"
+ENTRY_WIDTH = 100
 
 class FitParameter:
     def __init__(self, name: str, units: str | None, vary: bool, description: str):
@@ -27,14 +28,14 @@ class FitParameter:
         self.description = description
         
     def set_entries_and_labels(self, frame: ctk.CTkFrame) -> None:
-        self.init_entry = ctk.CTkEntry(frame, corner_radius=0, state="normal" if self.vary else "disabled")
-        self.lb_entry = ctk.CTkEntry(frame, corner_radius=0, state="normal" if self.vary else "disabled")
-        self.ub_entry = ctk.CTkEntry(frame, corner_radius=0, state="normal" if self.vary else "disabled")
-        self.fixed_entry = ctk.CTkEntry(frame, corner_radius=0, state="disabled" if self.vary else "normal")
-        self.init_label = ctk.CTkLabel(frame, text="init value", text_color=ENABLE_COLOR if self.vary else DISABLE_COLOR)
-        self.lb_label = ctk.CTkLabel(frame, text="min", text_color=ENABLE_COLOR if self.vary else DISABLE_COLOR)
-        self.ub_label = ctk.CTkLabel(frame, text="max", text_color=ENABLE_COLOR if self.vary else DISABLE_COLOR)
-        self.fixed_label = ctk.CTkLabel(frame, text="fixed value", text_color=ENABLE_COLOR if not self.vary else DISABLE_COLOR)
+        self.init_entry = ctk.CTkEntry(frame, width=ENTRY_WIDTH, corner_radius=0, state="normal" if self.vary else "disabled")
+        self.lb_entry = ctk.CTkEntry(frame, width=ENTRY_WIDTH, corner_radius=0, state="normal" if self.vary else "disabled")
+        self.ub_entry = ctk.CTkEntry(frame, width=ENTRY_WIDTH, corner_radius=0, state="normal" if self.vary else "disabled")
+        self.fixed_entry = ctk.CTkEntry(frame, width=ENTRY_WIDTH, corner_radius=0, state="disabled" if self.vary else "normal")
+        self.init_label = ctk.CTkLabel(frame, text="init value", text_color=ENABLE_COLOR if self.vary else DISABLE_COLOR, anchor="w")
+        self.lb_label = ctk.CTkLabel(frame, text="min", text_color=ENABLE_COLOR if self.vary else DISABLE_COLOR, anchor="w")
+        self.ub_label = ctk.CTkLabel(frame, text="max", text_color=ENABLE_COLOR if self.vary else DISABLE_COLOR, anchor="w")
+        self.fixed_label = ctk.CTkLabel(frame, text="fixed value", text_color=ENABLE_COLOR if not self.vary else DISABLE_COLOR, anchor="w")
 
     def get_entries(self) -> None:
         par_varies = self.vary.get()
@@ -64,8 +65,7 @@ class FileSelectFrame(ctk.CTkFrame):
         self.file_label.grid(row=1, column=1, **padding)
 
         ctk.CTkLabel(self, text="Example Header:", anchor="w").grid(row=2, **padding)
-        my_image = ctk.CTkImage(dark_image=Image.open("example_data.png"),
-                                  size=(500, 100))
+        my_image = ctk.CTkImage(dark_image=Image.open("example_data.png"), size=(200, 50))
         ctk.CTkLabel(self, image=my_image, text="", anchor="w").grid(row=3, columnspan=2, **padding, sticky="w")
     
     def browsefunc(self):
@@ -87,26 +87,28 @@ class ConstantsFrame(ctk.CTkFrame):
         B0_label = ctk.CTkLabel(self, text="B₀ [T]")
         B0_label.grid(column=0, row=1,  **padding, sticky="w")
         CTkToolTip(B0_label, message="Static field strength", alpha=0.9, text_color=DESCRIPTION_COLOR)
-        self.master.B0_entry = ctk.CTkEntry(self, corner_radius=0)
+        self.master.B0_entry = ctk.CTkEntry(self, corner_radius=0, width=ENTRY_WIDTH)
         self.master.B0_entry.grid(column=1, row=1,  **padding)
 
         gamma_label = ctk.CTkLabel(self, text="γ [10⁶ rad⋅s⁻¹⋅T⁻¹]")
         gamma_label.grid(column=0, row=2, **padding, sticky="w")
         CTkToolTip(gamma_label, message="Gyromagnetic ratio", alpha=0.9, text_color=DESCRIPTION_COLOR)
-        self.master.gamma_entry = ctk.CTkEntry(self, corner_radius=0)
+        self.master.gamma_entry = ctk.CTkEntry(self, corner_radius=0, width=ENTRY_WIDTH)
         self.master.gamma_entry.grid(column=1, row=2, **padding)
 
         tp_label = ctk.CTkLabel(self, text="tₚ [s]")
         tp_label.grid(column=0, row=3, **padding, sticky="w")
         CTkToolTip(tp_label, message="Saturation pulse duration", alpha=0.9, text_color=DESCRIPTION_COLOR)
-        self.master.tp_entry = ctk.CTkEntry(self, corner_radius=0)
+        self.master.tp_entry = ctk.CTkEntry(self, corner_radius=0, width=ENTRY_WIDTH)
         self.master.tp_entry.grid(column=1, row=3,  **padding)
+
+
 
 class FitParsFrame(ctk.CTkFrame):
     def __init__(self, master, padding):
         super().__init__(master)
         self.master = master
-        ctk.CTkLabel(self, text="SET FIT/STATIC PARAMETERS", text_color=TITLE_COLOR).grid(**padding)
+        ctk.CTkLabel(self, text="SET FIT PARAMETERS", text_color=TITLE_COLOR).grid(**padding)
         # R1a
         self.master.R1a = FitParameter(name="R1a", units="Hz", vary=False, description="Longitudinal relaxation rate of pool a")
         self.create_fit_par_widgets(self, self.master.R1a, row=1, padding=padding)
@@ -133,17 +135,6 @@ class FitParsFrame(ctk.CTkFrame):
         self.master.dwb = FitParameter(name="Δωb", units="ppm", vary=True, description="Larmor frequency of pool b relative to pool a")
         self.create_fit_par_widgets(self, self.master.dwb, row=8, padding=padding)
 
-        ## Submit button
-        self.valid_entries = False # flag to make sure that all entries are filled.
-        ctk.CTkButton(self, text="Submit", anchor="w", command=self.sumbit_entries).grid(column=2, row=9, padx=10, pady=50, sticky="we")
-        
-        ## Fit button
-        ctk.CTkButton(self, text="Fit Spectra", anchor="w", command=self.fit_spectra).grid(column=3, row=9, padx=10, pady=50, sticky="we")
-        
-        ## Show results button
-        self.toplevel_window = None
-        ctk.CTkButton(self, text="Show Results", anchor="w", command=self.open_toplevel).grid(column=4, row=9, padx=10, pady=50, sticky="we")
-
 
     def create_fit_par_widgets(self, frame:ctk.CTkFrame, p: FitParameter, row: int, padding: dict):
         if p.units is None:
@@ -151,21 +142,21 @@ class FitParsFrame(ctk.CTkFrame):
         else:
             p.par_name = ctk.CTkLabel(frame, text=f"{p.name} [{p.units}]")
         CTkToolTip(p.par_name, message=p.description, alpha=0.9, text_color=DESCRIPTION_COLOR)
-        p.par_name.grid(column=0, row=row, **padding, sticky="w")
+        p.par_name.grid(column=0, row=row, **padding, sticky="snew")
         p.set_entries_and_labels(frame)
         p.vary = ctk.BooleanVar(master=frame, value=p.vary)
-        p.init_label.grid(column=2, row=row, **padding)
-        p.init_entry.grid(column=3, row=row, **padding)
-        p.lb_label.grid(column=4, row=row, **padding)
-        p.lb_entry.grid(column=5, row=row, **padding)
-        p.ub_label.grid(column=6, row=row, **padding)
-        p.ub_entry.grid(column=7, row=row, **padding)
-        p.fixed_label.grid(column=8, row=row, **padding)
-        p.fixed_entry.grid(column=9, row=row, **padding)
+        p.init_label.grid(column=2, row=row, **padding, sticky="snew")
+        p.init_entry.grid(column=3, row=row, **padding, sticky="snew", ipadx=50)
+        p.lb_label.grid(column=4, row=row, **padding, sticky="snew")
+        p.lb_entry.grid(column=5, row=row, **padding, sticky="snew", ipadx=50)
+        p.ub_label.grid(column=6, row=row, **padding, sticky="snew")
+        p.ub_entry.grid(column=7, row=row, **padding, sticky="snew", ipadx=50)
+        p.fixed_label.grid(column=8, row=row, **padding, sticky="snew")
+        p.fixed_entry.grid(column=9, row=row, **padding, sticky="snew", ipadx=50)
         ctk.CTkCheckBox(frame, text="vary", variable=p.vary,
                         command=lambda : self.checkbox_event(
                             p.vary, p.fixed_entry, p.init_entry, p.lb_entry, p.ub_entry, p.init_label, p.lb_label, p.ub_label, p.fixed_label)
-                        ).grid(column=1, row=row,  **padding)
+                        ).grid(column=1, row=row,  **padding, sticky="snew")
     
     def checkbox_event(self, vary_widget, fix_value_entry, init_value_entry, lb_entry, ub_entry, init_label, lb_label, ub_label, fixed_label):
         if vary_widget.get():
@@ -195,7 +186,7 @@ class FitParsFrame(ctk.CTkFrame):
 
     def fit_spectra(self) -> None:
         if not (self.valid_entries and self.master.valid_data):
-            CTkMessagebox(title="Error", message="Please fill all required fields\nand select data file.", icon="warning", height=500, width=1000)
+            CTkMessagebox(title="Error", message="Please fill all required fields\nand select data file.", icon="warning", height=50, width=100)
 
         params = lmfit.Parameters()
         for p in [self.master.R1a, self.master.R2a, self.master.dwa, self.master.R1b, self.master.R2b, self.master.k, self.master.f, self.master.dwb]:
@@ -226,7 +217,7 @@ class FitParsFrame(ctk.CTkFrame):
         self.fig.savefig("fit.pdf")
 
         CTkMessagebox(title="Info", message="Done!",
-            icon="check", height=500, width=1000)
+            icon="check", height=50, width=100)
         
     def sumbit_entries(self):
         try:
@@ -243,16 +234,15 @@ class FitParsFrame(ctk.CTkFrame):
             self.master.dwb.get_entries()
             self.valid_entries = True
             CTkMessagebox(title="Info", message="Entries submitted successfully!\nClick 'Fit Spectra' to proceed.",
-                        icon="check", height=500, width=1000)
+                        icon="check", height=50, width=100)
         except:
-            CTkMessagebox(title="Error", message="Please fill all required fields.", icon="warning", height=500, width=1000)
+            CTkMessagebox(title="Error", message="Please fill all required fields.", icon="warning", height=50, width=100)
 
 class App(ctk.CTk):
 
     def __init__(self):
         super().__init__()
         self.title("Z-Spectra Fitting Tool")
-        self.minsize(1935, 1352)
 
         padding = {'padx':10, 'pady':10}
         file_select_frame = FileSelectFrame(self, padding)
@@ -264,8 +254,10 @@ class App(ctk.CTk):
 
         # Frame to set fitting parameters and perform fit
         fit_pars_frame = FitParsFrame(self, padding)
-        fit_pars_frame.pack(anchor="nw", **padding, fill="both", expand="true")
+        fit_pars_frame.pack(anchor="nw", **padding, fill="both", expand="true", side="left")
 
+        # flag to make sure that results windows is not displayed twice
+        self.toplevel_window = None
 
         # ############################## FOR TESTING PURPOSES ##############################
         self.B0_entry.insert(0, 7.4)

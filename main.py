@@ -24,10 +24,10 @@ class FitParameter:
         self.description = description
         
     def set_entries_and_labels(self, frame: ctk.CTkFrame) -> None:
-        self.init_entry = ctk.CTkEntry(frame, corner_radius=0, state="normal" if self.vary else "disabled")
-        self.lb_entry = ctk.CTkEntry(frame, corner_radius=0, state="normal" if self.vary else "disabled")
-        self.ub_entry = ctk.CTkEntry(frame, corner_radius=0, state="normal" if self.vary else "disabled")
-        self.fixed_entry = ctk.CTkEntry(frame, corner_radius=0, state="disabled" if self.vary else "normal")
+        self.init_entry = ctk.CTkEntry(frame, corner_radius=0, state="normal" if self.vary else "disabled", width=100)
+        self.lb_entry = ctk.CTkEntry(frame, corner_radius=0, state="normal" if self.vary else "disabled", width=100)
+        self.ub_entry = ctk.CTkEntry(frame, corner_radius=0, state="normal" if self.vary else "disabled", width=100)
+        self.fixed_entry = ctk.CTkEntry(frame, corner_radius=0, state="disabled" if self.vary else "normal", width=100)
         self.init_label = ctk.CTkLabel(frame, text="init value", text_color="#a3be8c" if self.vary else "#bf616a")
         self.lb_label = ctk.CTkLabel(frame, text="min", text_color="#a3be8c" if self.vary else "#bf616a")
         self.ub_label = ctk.CTkLabel(frame, text="max", text_color="#a3be8c" if self.vary else "#bf616a")
@@ -61,7 +61,7 @@ class App(ctk.CTk):
         # Frame to let the user select data file.
         # Create "data" variable to store a pandas DataFrame
         file_select_frame = ctk.CTkFrame(self)
-        file_select_frame.pack(anchor="nw")
+        file_select_frame.pack(anchor="nw", fill="both", expand=True, **padding)
 
         ctk.CTkLabel(file_select_frame, text="SELECT DATA FILE", text_color="#d08770").grid(row=0, column=0, **padding, sticky="we")
         ctk.CTkButton(file_select_frame, text="Browse data file", command=self.browsefunc).grid(row=1, **padding)
@@ -71,12 +71,12 @@ class App(ctk.CTk):
 
         ctk.CTkLabel(file_select_frame, text="Example Header:", anchor="w").grid(row=2, **padding)
         my_image = ctk.CTkImage(dark_image=Image.open("example_data.png"),
-                                  size=(500, 100))
+                                  size=(200, 20))
         ctk.CTkLabel(file_select_frame, image=my_image, text="", anchor="w").grid(row=3, columnspan=2, **padding, sticky="w")
 
         # Frame to set constants
         const_frame = ctk.CTkFrame(self)
-        const_frame.pack(anchor="nw", **padding)
+        const_frame.pack(anchor="nw", fill="both", expand=True, **padding)
         ctk.CTkLabel(const_frame, text="SET CONSTANTS", text_color="#d08770").grid(**padding)
 
         B0_label = ctk.CTkLabel(const_frame, text="B₀ [T]")
@@ -99,7 +99,7 @@ class App(ctk.CTk):
     
         # Frame to set fitting parameters
         pars_frame = ctk.CTkFrame(self)
-        pars_frame.pack(anchor="nw", **padding)
+        pars_frame.pack(anchor="nw", fill="both", expand=True, **padding)
         ctk.CTkLabel(pars_frame, text="SET FIT/STATIC PARAMETERS", text_color="#d08770").grid(**padding)
 
         # R1a
@@ -128,16 +128,20 @@ class App(ctk.CTk):
         self.dwb = FitParameter(name="Δωb", units="ppm", vary=True, description="Larmor frequency of pool b relative to pool a")
         self.create_fit_par_widgets(pars_frame, self.dwb, row=8, padding=padding)
 
-        ## Submit button
+        ## frame to put operation buttons
+        buttons_frame = ctk.CTkFrame(self)
+        buttons_frame.pack(anchor="center", fill="both", expand=True, **padding)
+
+        # Submit button
         self.valid_entries = False # flag to make sure that all entries are filled.
-        ctk.CTkButton(pars_frame, text="Submit", anchor="w", command=self.sumbit_entries).grid(column=0, row=9, **padding, sticky="w")
+        ctk.CTkButton(buttons_frame, text="Submit", anchor="w", command=self.sumbit_entries).grid(column=0, row=0, padx=50, pady=10, sticky="ew")
         
-        ## Fit button
-        ctk.CTkButton(pars_frame, text="Fit Spectra", anchor="w", command=self.fit_spectra, fg_color="green").grid(column=0, row=10, **padding, sticky="w")
+        # Fit button
+        ctk.CTkButton(buttons_frame, text="Fit Spectra", anchor="w", command=self.fit_spectra).grid(column=1, row=0, padx=50, pady=10, sticky="ew")
         
-        ## Show results button
+        # Show results button
         self.toplevel_window = None
-        ctk.CTkButton(pars_frame, text="Show Results", anchor="w", command=self.open_toplevel, fg_color="green").grid(column=0, row=11, **padding, sticky="w")
+        ctk.CTkButton(buttons_frame, text="Show Results", anchor="w", command=self.open_toplevel).grid(column=2, row=0, padx=50, pady=10, sticky="ew")
 
 
         # ############################## FOR TESTING PURPOSES ##############################
@@ -171,7 +175,7 @@ class App(ctk.CTk):
 
     def fit_spectra(self) -> None:
         if not self.valid_entries:
-            CTkMessagebox(title="Error", message="Please fill all required fields.", icon="warning", height=500, width=1000)
+            CTkMessagebox(title="Error", message="Please fill all required fields.", icon="warning", height=50, width=100)
         self.offsets = np.asarray(self.df["ppm"].to_numpy().astype(float))
         self.powers = np.asarray(list(self.df.columns[1:].str.extract(r"(\d+.\d+)", expand=False)), dtype=float)
         self.data = np.asarray(self.df.to_numpy().astype(float).T[1:])
@@ -200,7 +204,7 @@ class App(ctk.CTk):
         self.fig.savefig("test.pdf")
 
         CTkMessagebox(title="Info", message="Done!",
-            icon="check", height=500, width=1000)
+            icon="check", height=00, width=100)
         
 
     def sumbit_entries(self):
@@ -218,9 +222,9 @@ class App(ctk.CTk):
             self.dwb.get_entries()
             self.valid_entries = True
             CTkMessagebox(title="Info", message="Entries submitted successfully!\nClick 'Fit Spectra' to proceed.",
-                        icon="check", height=500, width=1000)
+                        icon="check", height=50, width=100)
         except:
-            CTkMessagebox(title="Error", message="Please fill all required fields.", icon="warning", height=500, width=1000)
+            CTkMessagebox(title="Error", message="Please fill all required fields.", icon="warning", height=50, width=100)
     
     def create_fit_par_widgets(self, frame:ctk.CTkFrame, p: FitParameter, row: int, padding: dict):
         if p.units is None:
