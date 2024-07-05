@@ -227,7 +227,7 @@ class MyTabView(ctk.CTkTabview):
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        ctk.CTkLabel(self, text="Welcome!\nFill required information in all tabs\nthen click 'Submit' and 'Fit Spectra'.\nClick 'Show Results' to view plot of fit.").pack()
+        ctk.CTkLabel(self, text="Welcome!\nFill required information in all tabs\nthen click 'Submit' and 'Fit Spectra'.\nClick 'Show Fit' to view plot of fit.").pack()
         self.valid_entries = False # flag to make sure entries are submitted correctly.
         
         self.tab_view = MyTabView(self)
@@ -237,8 +237,9 @@ class App(ctk.CTk):
         buttons_frame.pack(anchor="center", fill="both", expand=True, pady=10)
         ctk.CTkButton(buttons_frame, width=75, text="Submit", command=self.sumbit_entries).pack(side="left", padx=10, expand=True)
         ctk.CTkButton(buttons_frame, width=75, text="Fit Spectra", command=self.fit_spectra).pack(side="left", padx=10, expand=True)
-        ctk.CTkButton(buttons_frame, width=75, text="Show Fit", command=self.show_fit).pack(side="left", padx=10, expand=True)
-        
+        self.show_fit_btn = ctk.CTkButton(buttons_frame, width=75, text="Show Fit", command=self.show_fit, state="disabled")
+        self.show_fit_btn.pack(side="left", padx=10, expand=True)
+
         # flag to make sure that results windows is not displayed twice
         self.toplevel_window = None
 
@@ -295,6 +296,7 @@ class App(ctk.CTk):
         self.best_fit_spectra = bloch_mcconnell(self.best_fit_pars, self.offsets, self.powers, self.B0, self.gamma, self.tp)
 
         CTkMessagebox(self, title="Info", message="Done!", icon="check", height=50, width=100)
+        self.show_fit_btn.configure(state="normal")
 
     def show_fit(self):
         if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
