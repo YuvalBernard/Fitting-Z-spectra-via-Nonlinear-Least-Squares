@@ -13,6 +13,7 @@ from jax import jit
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 from typing import Optional
+import os
 
 # Configurations
 ctk.set_appearance_mode("dark")
@@ -190,19 +191,8 @@ class ToplevelWindow(ctk.CTkToplevel):
     def __init__(self, master):
         super().__init__()
         self.master = master
-        
-        fig, ax = plt.subplots()
-        ax.plot(self.master.offsets, self.master.best_fit_spectra.T)
-        ax.set_prop_cycle(None)
-        ax.plot(self.master.offsets, self.master.data.T, '.', label=[f"{power:.1f} μT" for power in self.master.powers])
-        ax.set_xlabel("offset [ppm]")
-        ax.set_ylabel("Z-value [a.u.]")
-        ax.set_title("Nonlinear Least Squares Fit")
-        ax.legend()
-        fig.savefig("fit.pdf")
-        plt.close(fig)
 
-        canvas = FigureCanvasTkAgg(master=self, figure=fig) # Convert the Figure to a tkinter widget
+        canvas = FigureCanvasTkAgg(master=self, figure=self.master.fig) # Convert the Figure to a tkinter widget
         canvas.draw() # Draw the graph on the canvas
         canvas.get_tk_widget().pack(fill='both', expand=True) # Show the widget on the screen
 
@@ -228,7 +218,6 @@ class App(ctk.CTk):
     def __init__(self):
         super().__init__()
         ctk.CTkLabel(self, text="Welcome!\nFill required information in all tabs\nthen click 'Submit' and 'Fit Spectra'.\nClick 'Show Fit' to view plot of fit.").pack()
-        self.valid_entries = False # flag to make sure entries are submitted correctly.
         
         self.tab_view = MyTabView(self)
         self.tab_view.pack(fill="both", expand=True)
@@ -236,10 +225,13 @@ class App(ctk.CTk):
 
         buttons_frame.pack(anchor="center", fill="both", expand=True, pady=10)
         ctk.CTkButton(buttons_frame, width=75, text="Submit", command=self.sumbit_entries).pack(side="left", padx=10, expand=True)
-        ctk.CTkButton(buttons_frame, width=75, text="Fit Spectra", command=self.fit_spectra).pack(side="left", padx=10, expand=True)
+        self.perform_fit_btn = ctk.CTkButton(buttons_frame, width=75, text="Fit Spectra", command=self.fit_spectra, state="disabled")
+        self.perform_fit_btn.pack(side="left", padx=10, expand=True)
         self.show_fit_btn = ctk.CTkButton(buttons_frame, width=75, text="Show Fit", command=self.show_fit, state="disabled")
         self.show_fit_btn.pack(side="left", padx=10, expand=True)
-
+        self.save_fit_btn = ctk.CTkButton(buttons_frame, width=75, text="Save Fit", command=self.save_fit, state="disabled")
+        self.save_fit_btn.pack(side="left", padx=10, expand=True)
+        
         # flag to make sure that results windows is not displayed twice
         self.toplevel_window = None
 
@@ -264,17 +256,13 @@ class App(ctk.CTk):
             self.offsets = dt.offsets
             self.powers = dt.powers
             self.data = dt.data
-            self.valid_entries = True
             CTkMessagebox(title="Info", message="Entries submitted successfully!\nClick 'Fit Spectra' to proceed.",
                         icon="check", height=50, width=100)
+            self.perform_fit_btn.configure(state="normal")
         except:
             CTkMessagebox(title="Error", message="Please fill all required fields\nand select data file.", icon="warning", height=50, width=100)
 
     def fit_spectra(self) -> None:
-        if not self.valid_entries:
-            CTkMessagebox(title="Error", message="Please fill all required fields\nand select data file.", icon="warning", height=50, width=100)
-            return
-
         params = lmfit.Parameters()
         for p in [self.R1a, self.R2a, self.dwa, self.R1b, self.R2b, self.k, self.f, self.dwb]:
             params.add(name=p.name, value=p.init_value if p.vary.get() else p.fixed_value, vary=p.vary.get(), min=p.lb, max=p.ub)
@@ -283,26 +271,48 @@ class App(ctk.CTk):
             model_pars = np.array([params["R1a"], params["R2a"], params["Δωa"], params["R1b"], params["R2b"], params["k"], params["f"], params["Δωb"]])
             return  (data - bloch_mcconnell(model_pars, offsets, powers, B0, gamma, tp)).flatten()
         
-
         # fit = lmfit.minimize(residuals, params, args=(self.offsets, self.powers, self.B0, self.gamma, self.tp, self.data), method="differential_evolution", fit_kws={'seed': 0})
-        fit = lmfit.minimize(fcn=residuals, params=params, method="COBYLA",
-                             args=(self.offsets, self.powers, self.B0, self.gamma, self.tp, self.data))
-        with open("fit.txt", "w") as text_file:
-            text_file.write(lmfit.printfuncs.fit_report(fit))
+        self.fit = lmfit.minimize(fcn=residuals, params=params, method="COBYLA",
+                             args=(self.offsets, self.powers, self.B0, self.gamma, self.tp, self.data))        
 
         self.best_fit_pars = np.asarray(
-            [fit.params[f"{p.name}"].value for p in [self.R1a, self.R2a, self.dwa, self.R1b, self.R2b, self.k, self.f, self.dwb]]
+            [self.fit.params[f"{p.name}"].value for p in [self.R1a, self.R2a, self.dwa, self.R1b, self.R2b, self.k, self.f, self.dwb]]
             )
         self.best_fit_spectra = bloch_mcconnell(self.best_fit_pars, self.offsets, self.powers, self.B0, self.gamma, self.tp)
 
         CTkMessagebox(self, title="Info", message="Done!", icon="check", height=50, width=100)
         self.show_fit_btn.configure(state="normal")
+        self.save_fit_btn.configure(state="normal")
+
+        self.fig, ax = plt.subplots()
+        ax.plot(self.offsets, self.best_fit_spectra.T)
+        ax.set_prop_cycle(None)
+        ax.plot(self.offsets, self.data.T, '.', label=[f"{power:.1f} μT" for power in self.powers])
+        ax.set_xlabel("offset [ppm]")
+        ax.set_ylabel("Z-value [a.u.]")
+        ax.set_title("Nonlinear Least Squares Fit")
+        ax.legend()
+        plt.close(self.fig)
 
     def show_fit(self):
         if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
             self.toplevel_window = ToplevelWindow(self)  # create window if its None or destroyed
         else:
             self.toplevel_window.focus()  # if window exists focus it
+        
+    def save_fit(self):
+        savedir = filedialog.askdirectory(title="Select Save Directory")
+        with open(os.path.join(savedir,os.path.join(savedir,"fit.txt")), "w") as text_file:
+            text_file.write(lmfit.printfuncs.fit_report( self.fit))
+
+        df = pd.DataFrame(np.c_[self.offsets, self.best_fit_spectra.T], columns=["ppm"] + [f"{power:.1f} μT" for power in self.powers])
+        with pd.ExcelWriter(os.path.join(savedir,"fit.xlsx")) as writer:
+            df.to_excel(writer, index=False)
+
+        self.fig.savefig(os.path.join(savedir,"fit.pdf"))
+
+        
+
 
 @jit
 @partial(jnp.vectorize, excluded=[0,1,3,4,5], signature="()->(k)") # powers
