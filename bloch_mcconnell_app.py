@@ -16,7 +16,7 @@ from typing import Optional
 import os
 
 # Configurations
-ctk.set_appearance_mode("dark")
+ctk.set_appearance_mode("light")
 
 # Constants
 ENABLE_COLOR = ("#F9F9FA", "#343638")
@@ -217,7 +217,20 @@ class MyTabView(ctk.CTkTabview):
 class App(ctk.CTk):
     def __init__(self):
         super().__init__()
-        ctk.CTkLabel(self, text="Welcome!\nFill required information in all tabs\nthen click 'Submit' and 'Fit Spectra'.\nClick 'Show Fit' to view plot of fit.").pack()
+
+        intro_frame = ctk.CTkFrame(self)
+        intro_frame.pack()
+        ctk.CTkLabel(intro_frame, text="Welcome!\nFill required information in all tabs\nthen click 'Submit' and 'Fit Spectra'.\nClick 'Show Fit' to view plot of fit.").grid(row=0, column=0, **PADDING, columnspan=2)
+        appearance_mode_label = ctk.CTkLabel(intro_frame, text="Appearance Mode:", anchor="w")
+        appearance_mode_label.grid(row=1, column=0, **PADDING)
+        appearance_mode_optionemenu = ctk.CTkOptionMenu(intro_frame, values=["Light", "Dark"], command=self.change_appearance_mode_event)
+        appearance_mode_optionemenu.grid(row=1, column=1, **PADDING)
+        appearance_mode_optionemenu.set("Light")
+        scaling_label = ctk.CTkLabel(intro_frame, text="UI Scaling:", anchor="w")
+        scaling_label.grid(row=2, column=0, **PADDING)
+        scaling_optionemenu = ctk.CTkOptionMenu(intro_frame, values=["50%", "75%", "100%", "125%", "150%", "200%"], command=self.change_scaling_event)
+        scaling_optionemenu.grid(row=2, column=1, **PADDING)
+        scaling_optionemenu.set("100%")
         
         self.tab_view = MyTabView(self)
         self.tab_view.pack(fill="both", expand=True)
@@ -311,7 +324,12 @@ class App(ctk.CTk):
 
         self.fig.savefig(os.path.join(savedir,"fit.pdf"))
 
-        
+    def change_appearance_mode_event(self, new_appearance_mode: str):
+        ctk.set_appearance_mode(new_appearance_mode)
+
+    def change_scaling_event(self, new_scaling: str):
+        new_scaling_float = int(new_scaling.replace("%", "")) / 100
+        ctk.set_widget_scaling(new_scaling_float)
 
 
 @jit
