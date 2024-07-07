@@ -23,7 +23,9 @@ import arviz as az
 ctk.set_appearance_mode("light")
 config.update("jax_enable_x64", True)
 config.update('jax_platform_name', 'cpu')
-numpyro.set_host_device_count(4)
+
+# ctk.set_widget_scaling(2)
+# ctk.set_window_scaling(2)
 
 # Constants
 ENABLE_COLOR = ("#F9F9FA", "#343638")
@@ -242,11 +244,6 @@ class App(ctk.CTk):
         appearance_mode_optionemenu = ctk.CTkOptionMenu(intro_frame, values=["Light", "Dark"], command=self.change_appearance_mode_event)
         appearance_mode_optionemenu.grid(row=1, column=1, **PADDING)
         appearance_mode_optionemenu.set("Light")
-        scaling_label = ctk.CTkLabel(intro_frame, text="UI Scaling:", anchor="w")
-        scaling_label.grid(row=2, column=0, **PADDING)
-        scaling_optionemenu = ctk.CTkOptionMenu(intro_frame, values=["50%", "75%", "100%", "125%", "150%", "200%"], command=self.change_scaling_event)
-        scaling_optionemenu.grid(row=2, column=1, **PADDING)
-        scaling_optionemenu.set("100%")
         
         self.tab_view = MyTabView(self)
         self.tab_view.pack(fill="both", expand=True)
@@ -289,10 +286,10 @@ class App(ctk.CTk):
             self.powers = dt.powers
             self.data = dt.data
             CTkMessagebox(title="Info", message="Entries submitted successfully!\nClick 'Fit Spectra' to proceed.",
-                        icon="check", height=50, width=100)
+                        icon="check", wraplength=300)
             self.perform_fit_btn.configure(state="normal")
         except:
-            CTkMessagebox(title="Error", message="Please fill all required fields\nand select data file.", icon="warning", height=50, width=100)
+            CTkMessagebox(title="Error", message="Please fill all required fields\nand select data file.", icon="warning", wraplength=300)
 
     def fit_spectra(self) -> None:
         def model(self):
@@ -307,7 +304,7 @@ class App(ctk.CTk):
             numpyro.infer.NUTS(model, init_strategy=numpyro.infer.init_to_mean),
             num_warmup=1000,
             num_samples=2000,
-            num_chains=4,
+            num_chains=2,
             chain_method="sequential",
             progress_bar=True
         )
@@ -335,7 +332,7 @@ class App(ctk.CTk):
         #     )
         # self.best_fit_spectra = bloch_mcconnell(self.best_fit_pars, self.offsets, self.powers, self.B0, self.gamma, self.tp)
 
-        CTkMessagebox(self, title="Info", message="Done!", icon="check", height=50, width=100)
+        CTkMessagebox(self, title="Info", message="Done!", icon="check")
         self.show_fit_btn.configure(state="normal")
         self.save_fit_btn.configure(state="normal")
 
@@ -368,10 +365,6 @@ class App(ctk.CTk):
 
     def change_appearance_mode_event(self, new_appearance_mode: str):
         ctk.set_appearance_mode(new_appearance_mode)
-
-    def change_scaling_event(self, new_scaling: str):
-        new_scaling_float = int(new_scaling.replace("%", "")) / 100
-        ctk.set_widget_scaling(new_scaling_float)
 
 
 @partial(jnp.vectorize, excluded=[0,1,3,4,5], signature="()->(k)") # powers

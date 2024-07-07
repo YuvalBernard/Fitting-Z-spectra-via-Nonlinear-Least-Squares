@@ -5,3 +5,11 @@ matplotlib
 jax
 lmfit
 pytest
+CTkMessagebox
+pillow
+CTkToolTip
+customtkinter
+jax
+numpyro
+arviz
+openpyxl
