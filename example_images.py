@@ -22,8 +22,8 @@ import pandas as pd
 
 # Constants
 ENABLE_COLOR = "#F9F9FA"
-DISABLE_COLOR = "gray40"
-ENTRY_WIDTH = 100
+DISABLE_COLOR = "gray30"
+ENTRY_WIDTH = 130
 PADDING = {'padx':20, 'pady':20}
 
 customtkinter.set_appearance_mode("light")
@@ -49,17 +49,24 @@ class ModelParameter:
             self.max_entry = customtkinter.CTkEntry(master, width=ENTRY_WIDTH, corner_radius=0, state="normal" if self.vary else "disabled", fg_color=ENABLE_COLOR if self.vary else DISABLE_COLOR)
             self.fixed_entry = customtkinter.CTkEntry(master, width=ENTRY_WIDTH, corner_radius=0, state="disabled" if self.vary else "normal", fg_color=DISABLE_COLOR if self.vary else ENABLE_COLOR)
         else:
-            self.label = customtkinter.CTkLabel(master, text=f"{self.name} [{self.units}]")
+            self.label = customtkinter.CTkLabel(master, text=f"{self.name} [{self.units}]", anchor="w")
             self.entry = customtkinter.CTkEntry(master, width=ENTRY_WIDTH, corner_radius=0)
 
     def get_entries(self) -> None:
+
+        def get_entry(entry: str):
+            if len(split_entries := entry.split(',')) > 1:
+                return np.asarray(split_entries, dtype=float)
+            else:
+                return float(entry)
+
         if self.vary is not None:
             par_varies = self.vary.get()
             self.min = float(self.min_entry.get()) if par_varies else None
             self.max = float(self.max_entry.get()) if par_varies else None
             self.fixed_value = None if par_varies else float(self.fixed_entry.get())
         else:
-            self.value = float(self.entry.get())
+            self.value = get_entry(self.entry.get())
 
     def set_prior(self) -> None:
         def normal_dist_from_quantiles(x1, x2, p1, p2):
@@ -86,66 +93,45 @@ class DataConstantsFrame(customtkinter.CTkFrame):
         self.configure(fg_color="transparent")
 
         # Data
-        customtkinter.CTkButton(self, text="Browse data file", command=self.browsefunc).grid(row=0, column=0, **PADDING, sticky="w")
+        customtkinter.CTkButton(self, text="Browse Data File", command=self.browsefunc).grid(row=0, column=0, **PADDING, sticky="w")
         self.file_label = customtkinter.CTkLabel(self, text="No file selected.", anchor="w")
         self.file_label.grid(row=0, column=1, **PADDING, sticky="w")
 
         # Constants
-        # customtkinter.CTkLabel(self, text="Tip: Hover over parameter label for a short description").pack(**PADDING)
-        
         self.master.B0 = ModelParameter(name="B₀", units="T", description="Static field strength")
         self.master.gamma = ModelParameter(name="γ", units="10⁶ rad⋅s⁻¹⋅T⁻¹", description="Gyromagnetic ratio")
         self.master.tp = ModelParameter(name="tₚ", units="s", description="Saturation pulse duration")
-        self.master.powers = ModelParameter(name="ω₁", units="μT", description="Irradiation amplitudes (list)")
+        self.master.powers = ModelParameter(name="ω₁ (list)", units="μT", description="Irradiation amplitudes (comma separated list)")
 
         for row, p in enumerate([self.master.B0, self.master.gamma, self.master.tp, self.master.powers]):
-            self.create_fit_par_widgets(p, row, column=3)
-    
-    def browsefunc(self) -> None:
-        filename = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
-        if filename:
-            self.df = pd.read_excel(filename)
-            powers = list(self.df.columns[1:].str.extract(r"(\d+.\d+)", expand=False))
-            self.master.offsets = np.asarray(self.df["ppm"].to_numpy().astype(float))
-            self.master.powers = np.asarray(powers, dtype=float)
-            self.master.data = np.asarray(self.df.to_numpy().astype(float).T[1:])
-            self.file_label.configure(text=f"Selected file: {os.path.relpath(path=filename, start=os.getcwd())}")
-    
-    def create_fit_par_widgets(self, p: ModelParameter, row: int, column: int) -> None:
-        p.set_entries_and_labels(self)
-        p.label.grid(column=column, row=row, **PADDING)
-        CTkToolTip(p.label, message=p.description, alpha=0.9)
-        p.entry.grid(column=column+1, row=row, **PADDING)
-
-
-class ConstantsFrame(customtkinter.CTkFrame):
-    def __init__(self, master):
-        super().__init__(master)
-        self.master = master
-
-        customtkinter.CTkLabel(self, text="Tip: Hover over parameter label for a short description").pack(**PADDING)
-        
-        self.master.B0 = ModelParameter(name="B₀", units="T", description="Static field strength")
-        self.master.gamma = ModelParameter(name="γ", units="10⁶ rad⋅s⁻¹⋅T⁻¹", description="Gyromagnetic ratio")
-        self.master.tp = ModelParameter(name="tₚ", units="s", description="Saturation pulse duration")
-
-        self.pars_frame = customtkinter.CTkFrame(self)
-        self.pars_frame.pack(**PADDING)
-        for row, p in enumerate([self.master.B0, self.master.gamma, self.master.tp]):
-            self.create_fit_par_widgets(p, row)
+            self.create_fit_par_widgets(p, row+1)
 
         # for testing purposes. remove in main version
         self.master.B0.entry.insert(0, 7.4)
         self.master.gamma.entry.insert(0, 103.962)
         self.master.tp.entry.insert(0, 2.0)
-        
 
+        # Example table
+        customtkinter.CTkLabel(self, text="Example Table: (Header must have specific form)", anchor="w").grid(row=1, column=2, padx=50, pady=PADDING["pady"], sticky="w")
+        table_image = customtkinter.CTkImage(Image.open("example_data.png"), size=(250, 200))
+        customtkinter.CTkLabel(self, image=table_image, text="").grid(row=2, column=2, rowspan=4, padx=50, pady=5, sticky="w")
+
+
+    def browsefunc(self) -> None:
+        filename = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
+        if filename:
+            self.df = pd.read_excel(filename)
+            powers = list(self.df.columns[1:].str.extract(r"(\d+.\d+)", expand=False))
+            self.master.powers.entry.insert(0, ", ".join(powers))
+            self.master.offsets = np.asarray(self.df["ppm"].to_numpy().astype(float))
+            self.master.data = np.asarray(self.df.to_numpy().astype(float).T[1:])
+            self.file_label.configure(text=f"Selected file: {os.path.relpath(path=filename, start=os.getcwd())}", font=customtkinter.CTkFont(underline=True))
+    
     def create_fit_par_widgets(self, p: ModelParameter, row: int) -> None:
-        p.set_entries_and_labels(self.pars_frame)
-        p.label.grid(column=0, row=row, **PADDING)
+        p.set_entries_and_labels(self)
+        p.label.grid(column=0, row=row, **PADDING, sticky="w")
         CTkToolTip(p.label, message=p.description, alpha=0.9)
-        p.entry.grid(column=1, row=row, **PADDING)
-
+        p.entry.grid(column=1, row=row, **PADDING, sticky="w")
 
 class FitParsFrame(customtkinter.CTkFrame):
     def __init__(self, master):
@@ -214,7 +200,7 @@ class App(customtkinter.CTk):
         self.rng_key = random.PRNGKey(0)
 
         self.title("image_example.py")
-        self.geometry("1320x600")
+        self.geometry("1350x750")
 
         # set grid layout 1x2
         self.grid_rowconfigure(0, weight=1)
@@ -226,6 +212,8 @@ class App(customtkinter.CTk):
         self.data_image = customtkinter.CTkImage(Image.open(os.path.join(image_path, "excel_icon_light.png")), size=(20, 20))
         self.pars_image = customtkinter.CTkImage(Image.open(os.path.join(image_path, "lambda_icon_light.png")), size=(20, 20))
         self.results_image = customtkinter.CTkImage(Image.open(os.path.join(image_path, "result_icon_light.png")), size=(20, 20))
+        self.submit_image = customtkinter.CTkImage(Image.open(os.path.join(image_path, "submit_icon.png")), size=(20, 20))
+        self.perform_fit_image = customtkinter.CTkImage(Image.open(os.path.join(image_path, "magnifying_glass_icon.png")), size=(20,20))
 
         # create navigation frame
         self.navigation_frame = customtkinter.CTkFrame(self, corner_radius=0)
@@ -251,15 +239,21 @@ class App(customtkinter.CTk):
                                                       image=self.results_image, anchor="w", command=self.results_button_event)
         self.results_button.grid(row=3, column=0, sticky="ew")
 
+        self.submit_entries_button = customtkinter.CTkButton(self.navigation_frame, text="Submit Entries",
+                                                                image=self.submit_image, command=self.submit_entries)
+        self.submit_entries_button.grid(row=5, column=0, **PADDING, sticky="s")
+
+        self.perform_fit_button = customtkinter.CTkButton(self.navigation_frame, text="Perform Fit",
+                                                                image=self.perform_fit_image, command=self.perform_fit, state="disabled")
+        self.perform_fit_button.grid(row=6, column=0, **PADDING, sticky="s")
+
         self.appearance_mode_menu = customtkinter.CTkOptionMenu(self.navigation_frame, values=["Light", "Dark", "System"],
                                                                 command=self.change_appearance_mode_event)
-        self.appearance_mode_menu.grid(row=6, column=0, padx=20, pady=20, sticky="s")
+        self.appearance_mode_menu.grid(row=7, column=0, **PADDING, sticky="s")
 
         # create data and constants frame
-        self.data_constants_frame = customtkinter.CTkFrame(self, corner_radius=0, fg_color="transparent")
-        # data frame
-        self.data_frame = DataConstantsFrame(self.data_constants_frame)
-        self.data_frame.grid()
+        self.data_constants_frame = DataConstantsFrame(self)
+        self.data_constants_frame.grid()
 
         # create model parameters frame
         self.pars_frame = FitParsFrame(self)
@@ -301,13 +295,55 @@ class App(customtkinter.CTk):
 
     def change_appearance_mode_event(self, new_appearance_mode):
         customtkinter.set_appearance_mode(new_appearance_mode)
+    
+    def submit_entries(self):
+        try:
+            for p in [self.B0, self.gamma, self.tp, self.powers, self.R1a, self.R2a, self.dwa, self.R1b, self.R2b, self.k, self.f, self.dwb]:
+                p.get_entries()
+            for p in [self.R1a, self.R2a, self.dwa, self.R1b, self.R2b, self.k, self.f, self.dwb]:
+                p.set_prior()
 
+            self.B0 = self.B0.value
+            self.gamma = self.gamma.value
+            self.tp = self.tp.value
+            self.powers = self.powers.value
 
-def interpret_entry(entry: str):
-    if len(split_entries := entry.split(',')) > 1:
-        return [float(i) for i in split_entries]
-    else:
-        return float(entry)
+            CTkMessagebox(title="Info", message="Entries submitted successfully!\nClick 'Fit Spectra' to proceed.",
+                        icon="check", wraplength=300)
+            self.perform_fit_button.configure(state="normal")
+
+        except:
+            CTkMessagebox(title="Error", message="Please fill all required fields\nand select data file.", icon="warning", wraplength=300)
+    
+    def perform_fit(self):
+        def model(self):
+            model_pars = jnp.array([
+                numpyro.sample(p.name, p.prior) if p.vary.get() else p.fixed_value for p in [self.R1a, self.R2a, self.dwa, self.R1b, self.R2b, self.k, self.f, self.dwb]
+            ])
+            sigma = numpyro.sample("sigma", dist.HalfNormal(0.03))
+            model_pred = bloch_mcconnell(model_pars, self.offsets, self.powers, self.B0, self.gamma, self.tp)
+            numpyro.sample("obs", dist.Normal(model_pred, sigma), obs=self.data)
+        
+        mcmc = numpyro.infer.MCMC(
+            numpyro.infer.NUTS(model, init_strategy=numpyro.infer.init_to_mean),
+            num_warmup=1000,
+            num_samples=2000,
+            num_chains=4,
+            chain_method="sequential",
+            progress_bar=True
+        )
+        mcmc.run(self.rng_key, self, extra_fields=('potential_energy', 'energy'))
+        self.idata = az.from_numpyro(posterior=mcmc)
+        self.fit_summary = az.summary(self.idata, round_to=5, stat_funcs={'median': np.median, 'mode': lambda x: az.plots.plot_utils.calculate_point_estimate('mode', x)}, var_names=["~sigma"])
+
+        CTkMessagebox(self, title="Info", message="Done!", icon="check", wraplength=300)
+
+@partial(jnp.vectorize, excluded=[0,1,3,4,5], signature="()->(k)") # powers
+@partial(jnp.vectorize, excluded=[0,2,3,4,5], signature="()->()") # offsets
+def bloch_mcconnell(model_pars, offset, power, B0, gamma, tp):
+    R1a, R2a, dwa, R1b, R2b, k, f, dwb = model_pars
+    return Z_analytical_symbolic(R1a, R2a, dwa, R1b, R2b, k, f, dwb, offset, power, B0, gamma, tp)
+
 
 if __name__ == "__main__":
     app = App()

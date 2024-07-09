@@ -369,7 +369,7 @@ class App(ctk.CTk):
 
 @partial(jnp.vectorize, excluded=[0,1,3,4,5], signature="()->(k)") # powers
 @partial(jnp.vectorize, excluded=[0,2,3,4,5], signature="()->()") # offsets
-def bloch_mcconnell(model_pars, offset: float, power: float, B0:float, gamma:float, tp:float):
+def bloch_mcconnell(model_pars, offset, power, B0, gamma, tp):
     R1a, R2a, dwa, R1b, R2b, k, f, dwb = model_pars
     return Z_analytical_symbolic(R1a, R2a, dwa, R1b, R2b, k, f, dwb, offset, power, B0, gamma, tp)
 
