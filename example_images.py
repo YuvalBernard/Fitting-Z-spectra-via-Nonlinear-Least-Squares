@@ -18,7 +18,12 @@ import numpyro.distributions as dist
 from numpyro.diagnostics import hpdi
 import arviz as az
 import pandas as pd
+from threading import Thread
 
+
+# Configurations
+config.update("jax_enable_x64", True)
+config.update('jax_platform_name', 'cpu')
 
 # Constants
 ENABLE_COLOR = "#F9F9FA"
@@ -89,7 +94,6 @@ class ModelParameter:
 class DataConstantsFrame(customtkinter.CTkFrame):
     def __init__(self, master):
         super().__init__(master)
-        self.master = master
         self.configure(fg_color="transparent")
 
         # Data
@@ -98,33 +102,33 @@ class DataConstantsFrame(customtkinter.CTkFrame):
         self.file_label.grid(row=0, column=1, **PADDING, sticky="w")
 
         # Constants
-        self.master.B0 = ModelParameter(name="B₀", units="T", description="Static field strength")
-        self.master.gamma = ModelParameter(name="γ", units="10⁶ rad⋅s⁻¹⋅T⁻¹", description="Gyromagnetic ratio")
-        self.master.tp = ModelParameter(name="tₚ", units="s", description="Saturation pulse duration")
-        self.master.powers = ModelParameter(name="ω₁ (list)", units="μT", description="Irradiation amplitudes (comma separated list)")
+        self.B0 = ModelParameter(name="B₀", units="T", description="Static field strength")
+        self.gamma = ModelParameter(name="γ", units="10⁶ rad⋅s⁻¹⋅T⁻¹", description="Gyromagnetic ratio")
+        self.tp = ModelParameter(name="tₚ", units="s", description="Saturation pulse duration")
+        self.powers = ModelParameter(name="ω₁ (list)", units="μT", description="Irradiation amplitudes (comma separated list)")
 
-        for row, p in enumerate([self.master.B0, self.master.gamma, self.master.tp, self.master.powers]):
+        for row, p in enumerate([self.B0, self.gamma, self.tp, self.powers]):
             self.create_fit_par_widgets(p, row+1)
 
         # for testing purposes. remove in main version
-        self.master.B0.entry.insert(0, 7.4)
-        self.master.gamma.entry.insert(0, 103.962)
-        self.master.tp.entry.insert(0, 2.0)
+        self.B0.entry.insert(0, 7.4)
+        self.gamma.entry.insert(0, 103.962)
+        self.tp.entry.insert(0, 2.0)
 
         # Example table
         customtkinter.CTkLabel(self, text="Example Table: (Header must have specific form)", anchor="w").grid(row=1, column=2, padx=50, pady=PADDING["pady"], sticky="w")
         table_image = customtkinter.CTkImage(Image.open("example_data.png"), size=(250, 200))
         customtkinter.CTkLabel(self, image=table_image, text="").grid(row=2, column=2, rowspan=4, padx=50, pady=5, sticky="w")
 
-
     def browsefunc(self) -> None:
         filename = filedialog.askopenfilename(filetypes=[("Excel files", "*.xlsx")])
         if filename:
-            self.df = pd.read_excel(filename)
-            powers = list(self.df.columns[1:].str.extract(r"(\d+.\d+)", expand=False))
-            self.master.powers.entry.insert(0, ", ".join(powers))
-            self.master.offsets = np.asarray(self.df["ppm"].to_numpy().astype(float))
-            self.master.data = np.asarray(self.df.to_numpy().astype(float).T[1:])
+            df = pd.read_excel(filename)
+            powers = list(df.columns[1:].str.extract(r"(\d+.\d+)", expand=False))
+            self.powers.entry.delete(0, customtkinter.END)
+            self.powers.entry.insert(0, ", ".join(powers))
+            self.offsets = df["ppm"].to_numpy(dtype=float)
+            self.data = df.to_numpy(dtype=float).T[1:]
             self.file_label.configure(text=f"Selected file: {os.path.relpath(path=filename, start=os.getcwd())}", font=customtkinter.CTkFont(underline=True))
     
     def create_fit_par_widgets(self, p: ModelParameter, row: int) -> None:
@@ -136,40 +140,39 @@ class DataConstantsFrame(customtkinter.CTkFrame):
 class FitParsFrame(customtkinter.CTkFrame):
     def __init__(self, master):
         super().__init__(master)
-        self.master = master
         self.configure(fg_color="transparent")
 
         customtkinter.CTkLabel(self, text="Tip: Hover over parameter label for a short description", anchor="w").pack(**PADDING)
 
-        self.master.R1a = ModelParameter(name="R1a", units="Hz", vary=False, description="Longitudinal relaxation rate of pool a")
-        self.master.R2a = ModelParameter(name="R2a", units="Hz", vary=False, description="Transverse relaxation rate of pool a")
-        self.master.dwa = ModelParameter(name="Δωa", units="ppm", vary=False, description="Larmor frequency of pool a relative to itself.\nShould be zero")
-        self.master.R1b = ModelParameter(name="R1b", units="Hz", vary=True, description="Longitudinal relaxation rate of pool b")
-        self.master.R2b = ModelParameter(name="R2b", units="Hz", vary=True, description="Transverse relaxation rate of pool b")
-        self.master.k = ModelParameter(name="k", units="Hz", vary=True, description="Exchange rate from pool b to pool a")
-        self.master.f = ModelParameter(name="f", units=None, vary=True, description=("Equilibrium magnetization of pool b relative to pool a."
+        self.R1a = ModelParameter(name="R1a", units="Hz", vary=False, description="Longitudinal relaxation rate of pool a")
+        self.R2a = ModelParameter(name="R2a", units="Hz", vary=False, description="Transverse relaxation rate of pool a")
+        self.dwa = ModelParameter(name="Δωa", units="ppm", vary=False, description="Larmor frequency of pool a relative to itself.\nShould be zero")
+        self.R1b = ModelParameter(name="R1b", units="Hz", vary=True, description="Longitudinal relaxation rate of pool b")
+        self.R2b = ModelParameter(name="R2b", units="Hz", vary=True, description="Transverse relaxation rate of pool b")
+        self.k = ModelParameter(name="k", units="Hz", vary=True, description="Exchange rate from pool b to pool a")
+        self.f = ModelParameter(name="f", units=None, vary=True, description=("Equilibrium magnetization of pool b relative to pool a."
                                                                          "\nRoughly equivalent to fraction of pool b in solution"))
-        self.master.dwb = ModelParameter(name="Δωb", units="ppm", vary=True, description="Larmor frequency of pool b relative to pool a")
+        self.dwb = ModelParameter(name="Δωb", units="ppm", vary=True, description="Larmor frequency of pool b relative to pool a")
 
         self.pars_frame = customtkinter.CTkFrame(self, fg_color="transparent")
         self.pars_frame.pack(**PADDING)
-        for row, p in enumerate([self.master.R1a, self.master.R2a, self.master.dwa, self.master.R1b, self.master.R2b, self.master.k, self.master.f, self.master.dwb]):
+        for row, p in enumerate([self.R1a, self.R2a, self.dwa, self.R1b, self.R2b, self.k, self.f, self.dwb]):
             self.create_fit_par_widgets(p, row)
 
         # for testing purposes. remove in main version
-        self.master.R1a.fixed_entry.insert(0, 8.0)
-        self.master.R2a.fixed_entry.insert(0, 380)
-        self.master.dwa.fixed_entry.insert(0, 0)
-        self.master.R1b.min_entry.insert(0, 0.1)
-        self.master.R1b.max_entry.insert(0, 100.0)
-        self.master.R2b.min_entry.insert(0, 1000)
-        self.master.R2b.max_entry.insert(0, 100_000)
-        self.master.k.min_entry.insert(0, 1)
-        self.master.k.max_entry.insert(0, 500)
-        self.master.f.min_entry.insert(0, 1e-5)
-        self.master.f.max_entry.insert(0, 0.1)
-        self.master.dwb.min_entry.insert(0, -265)
-        self.master.dwb.max_entry.insert(0, -255)
+        self.R1a.fixed_entry.insert(0, 8.0)
+        self.R2a.fixed_entry.insert(0, 380)
+        self.dwa.fixed_entry.insert(0, 0)
+        self.R1b.min_entry.insert(0, 0.1)
+        self.R1b.max_entry.insert(0, 100.0)
+        self.R2b.min_entry.insert(0, 1000)
+        self.R2b.max_entry.insert(0, 100_000)
+        self.k.min_entry.insert(0, 1)
+        self.k.max_entry.insert(0, 500)
+        self.f.min_entry.insert(0, 1e-5)
+        self.f.max_entry.insert(0, 0.1)
+        self.dwb.min_entry.insert(0, -265)
+        self.dwb.max_entry.insert(0, -255)
 
     def create_fit_par_widgets(self, p: ModelParameter, row: int) -> None:
         p.set_entries_and_labels(self.pars_frame)
@@ -193,6 +196,67 @@ class FitParsFrame(customtkinter.CTkFrame):
             p.fixed_entry.configure(state="normal", fg_color=ENABLE_COLOR)
             p.min_entry.configure(state="disabled", fg_color=DISABLE_COLOR)
             p.max_entry.configure(state="disabled", fg_color=DISABLE_COLOR)
+
+class ProgressBarWindow(customtkinter.CTkToplevel):
+    def __init__(self, master):
+        super().__init__()
+        self.master = master
+        self.title("MCMC Sampling Progress Tracker")
+
+        self.mcmc_status = customtkinter.StringVar(value="Running MCMC. Please wait...")
+        self.mcmc_status_label = customtkinter.CTkLabel(self, textvariable=self.mcmc_status)
+        self.mcmc_status_label.pack(**PADDING)
+        progressbar = customtkinter.CTkProgressBar(self, mode="indeterminate")
+        progressbar.pack(**PADDING)
+        progressbar.start()
+
+        def run_mcmc(self, master):
+            master.mcmc.run(master.rng_key, master, extra_fields=('potential_energy', 'energy'))
+            master.idata = az.from_numpyro(posterior=master.mcmc)
+            master.fit_summary = az.summary(master.idata, round_to=5, stat_funcs={'median': np.median, 'mode': lambda x: az.plots.plot_utils.calculate_point_estimate('mode', x)}, var_names=["~sigma"])
+            self.mcmc_status.set("Finished Sampling.")
+
+        Thread(target=run_mcmc, args=(self, self.master)).start()
+        self.mcmc_status_label.wait_variable(self.mcmc_status)
+        progressbar.stop()
+        self.destroy()
+
+class ResultsFrame(customtkinter.CTkFrame):
+    def __init__(self, master):
+        super().__init__(master)
+        self.configure(fg_color="transparent")
+        self.master = master
+
+        # Add a summary table somehow.
+        self.posterior_summary_menu = customtkinter.CTkOptionMenu(self, values=["mean", "median", "mode"],
+                                                                command=self.change_posterior_summary_event)
+        self.posterior_summary_menu.grid(row=0, column=0, **PADDING)
+
+        def get_fit_plot(master, method: str):
+            master.fig, ax = plt.subplots()
+            match method:
+                case "mean":
+                    ax.plot(master.offsets, master.best_fit_spectra_mean.T)
+                case "median":
+                    ax.plot(master.offsets, master.best_fit_spectra_median.T)
+                case "mode":
+                    ax.plot(master.offsets, master.best_fit_pars_mode.T)
+            ax.set_prop_cycle(None)
+            ax.plot(master.offsets, master.data.T, '.', label=[f"{power:.1f} μT" for power in master.powers])
+            ax.set_xlabel("offset [ppm]")
+            ax.set_ylabel("Z-value [a.u.]")
+            ax.set_title("Nonlinear Least Squares Fit")
+            ax.legend()
+            plt.close(master.fig)
+            return master.fig
+
+        self.canvas = FigureCanvasTkAgg(master=self, figure=get_fit_plot(self.master, "mean")) # Convert the Figure to a tkinter widget
+        self.canvas.draw() # Draw the graph on the canvas
+        self.canvas.get_tk_widget().grid(row=0, column=1, **PADDING) # Show the widget on the screen
+
+    def change_posterior_summary_event(self, method):
+        self.canvas.configure(figure=get_fit_plot(self.master, method))
+
 
 class App(customtkinter.CTk):
     def __init__(self):
@@ -236,7 +300,7 @@ class App(customtkinter.CTk):
 
         self.results_button = customtkinter.CTkButton(self.navigation_frame, corner_radius=0, height=40, border_spacing=10, text="Show and Save Results",
                                                       fg_color="transparent", text_color=("gray10", "gray90"), hover_color=("gray70", "gray30"),
-                                                      image=self.results_image, anchor="w", command=self.results_button_event)
+                                                      image=self.results_image, anchor="w", command=self.results_button_event, state="disabled")
         self.results_button.grid(row=3, column=0, sticky="ew")
 
         self.submit_entries_button = customtkinter.CTkButton(self.navigation_frame, text="Submit Entries",
@@ -258,8 +322,8 @@ class App(customtkinter.CTk):
         # create model parameters frame
         self.pars_frame = FitParsFrame(self)
         self.pars_frame.grid()
-        # create results frame
-        self.results_frame = customtkinter.CTkFrame(self, corner_radius=0, fg_color="transparent")
+
+        self.results_frame = customtkinter.CTkFrame(self)
 
         # select default frame
         self.select_frame_by_name("data")
@@ -297,46 +361,82 @@ class App(customtkinter.CTk):
         customtkinter.set_appearance_mode(new_appearance_mode)
     
     def submit_entries(self):
+        cdt = self.data_constants_frame # to access attributes of constants and data tab
+        fpt = self.pars_frame # to access attributes of fit pars tab
         try:
-            for p in [self.B0, self.gamma, self.tp, self.powers, self.R1a, self.R2a, self.dwa, self.R1b, self.R2b, self.k, self.f, self.dwb]:
+            for p in [cdt.B0, cdt.gamma, cdt.tp, cdt.powers, fpt.R1a, fpt.R2a, fpt.dwa, fpt.R1b, fpt.R2b, fpt.k, fpt.f, fpt.dwb]:
                 p.get_entries()
-            for p in [self.R1a, self.R2a, self.dwa, self.R1b, self.R2b, self.k, self.f, self.dwb]:
+            for p in [fpt.R1a, fpt.R2a, fpt.dwa, fpt.R1b, fpt.R2b, fpt.k, fpt.f, fpt.dwb]:
                 p.set_prior()
 
-            self.B0 = self.B0.value
-            self.gamma = self.gamma.value
-            self.tp = self.tp.value
-            self.powers = self.powers.value
+            self.B0 = cdt.B0.value
+            self.gamma = cdt.gamma.value
+            self.tp = cdt.tp.value
+            self.powers = cdt.powers.value
+            self.offsets = cdt.offsets
+            self.data = cdt.data
+            self.R1a = fpt.R1a
+            self.R2a = fpt.R2a
+            self.dwa = fpt.dwa
+            self.R1b = fpt.R1b
+            self.R2b = fpt.R2b
+            self.k = fpt.k
+            self.f = fpt.f
+            self.dwb = fpt.dwb
 
-            CTkMessagebox(title="Info", message="Entries submitted successfully!\nClick 'Fit Spectra' to proceed.",
+            CTkMessagebox(title="Info", message="Entries submitted successfully!\nClick 'Perform fit' to proceed.",
                         icon="check", wraplength=300)
             self.perform_fit_button.configure(state="normal")
 
         except:
             CTkMessagebox(title="Error", message="Please fill all required fields\nand select data file.", icon="warning", wraplength=300)
+
     
     def perform_fit(self):
         def model(self):
-            model_pars = jnp.array([
+            model_pars = jnp.asarray([
                 numpyro.sample(p.name, p.prior) if p.vary.get() else p.fixed_value for p in [self.R1a, self.R2a, self.dwa, self.R1b, self.R2b, self.k, self.f, self.dwb]
             ])
             sigma = numpyro.sample("sigma", dist.HalfNormal(0.03))
             model_pred = bloch_mcconnell(model_pars, self.offsets, self.powers, self.B0, self.gamma, self.tp)
             numpyro.sample("obs", dist.Normal(model_pred, sigma), obs=self.data)
         
-        mcmc = numpyro.infer.MCMC(
+        self.mcmc = numpyro.infer.MCMC(
             numpyro.infer.NUTS(model, init_strategy=numpyro.infer.init_to_mean),
-            num_warmup=1000,
-            num_samples=2000,
-            num_chains=4,
+            num_warmup=100, # should be 1000
+            num_samples=200, # should be 200
+            num_chains=2, # should be 4
             chain_method="sequential",
             progress_bar=True
         )
-        mcmc.run(self.rng_key, self, extra_fields=('potential_energy', 'energy'))
-        self.idata = az.from_numpyro(posterior=mcmc)
-        self.fit_summary = az.summary(self.idata, round_to=5, stat_funcs={'median': np.median, 'mode': lambda x: az.plots.plot_utils.calculate_point_estimate('mode', x)}, var_names=["~sigma"])
 
+        # Open progress bar in top-level window
+        self.toplevel_window = None # flag to make sure that results windows is not displayed twice
+        if self.toplevel_window is None or not self.toplevel_window.winfo_exists():
+            self.toplevel_window = ProgressBarWindow(self)  # create window if its None or destroyed
+        else:
+            self.toplevel_window.focus()  # if window exists focus it
+        print(self.fit_summary)
+        self.best_fit_pars_mean = np.asarray([
+            self.fit_summary["mean"][p.name] if p.vary.get() else p.fixed_value for p in [self.R1a, self.R2a, self.dwa, self.R1b, self.R2b, self.k, self.f, self.dwb]
+        ])
+        self.best_fit_spectra_mean = bloch_mcconnell(self.best_fit_pars_mean, self.offsets, self.powers, self.B0, self.gamma, self.tp)
+        self.best_fit_pars_median = np.asarray([
+            self.fit_summary["median"][p.name] if p.vary.get() else p.fixed_value for p in [self.R1a, self.R2a, self.dwa, self.R1b, self.R2b, self.k, self.f, self.dwb]
+        ])
+        self.best_fit_spectra_median = bloch_mcconnell(self.best_fit_pars_median, self.offsets, self.powers, self.B0, self.gamma, self.tp)
+        self.best_fit_pars_mode = np.asarray([
+            self.fit_summary["mode"][p.name] if p.vary.get() else p.fixed_value for p in [self.R1a, self.R2a, self.dwa, self.R1b, self.R2b, self.k, self.f, self.dwb]
+        ])
+        self.best_fit_spectra_mode = bloch_mcconnell(self.best_fit_pars_mode, self.offsets, self.powers, self.B0, self.gamma, self.tp)
+
+        self.results_button.configure(state="normal")
         CTkMessagebox(self, title="Info", message="Done!", icon="check", wraplength=300)
+
+        self.results_frame = ResultsFrame(self)
+        self.results_frame.grid()
+
+
 
 @partial(jnp.vectorize, excluded=[0,1,3,4,5], signature="()->(k)") # powers
 @partial(jnp.vectorize, excluded=[0,2,3,4,5], signature="()->()") # offsets
