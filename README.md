@@ -39,7 +39,7 @@ pip install -r requirements.txt
 ## Running the Program
 Run
 ```bash
-python bm_fit.py
+python bloch_mcconnell_app.py
 ```
 in the terminal
 ## Testing the Program
