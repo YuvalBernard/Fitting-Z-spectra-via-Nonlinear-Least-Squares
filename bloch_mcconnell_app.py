@@ -284,7 +284,7 @@ class App(ctk.CTk):
             model_pars = np.array([params["R1a"], params["R2a"], params["Δωa"], params["R1b"], params["R2b"], params["k"], params["f"], params["Δωb"]])
             return  (data - bloch_mcconnell(model_pars, offsets, powers, B0, gamma, tp)).flatten()
         
-        # fit = lmfit.minimize(residuals, params, args=(self.offsets, self.powers, self.B0, self.gamma, self.tp, self.data), method="differential_evolution", fit_kws={'seed': 0})
+        # self.fit = lmfit.minimize(residuals, params, args=(self.offsets, self.powers, self.B0, self.gamma, self.tp, self.data), method="differential_evolution", fit_kws={'seed': 0})
         self.fit = lmfit.minimize(fcn=residuals, params=params, method="COBYLA",
                              args=(self.offsets, self.powers, self.B0, self.gamma, self.tp, self.data))        
 
@@ -314,6 +314,7 @@ class App(ctk.CTk):
             self.toplevel_window.focus()  # if window exists focus it
         
     def save_fit(self):
+        os.makedirs(os.path.join(os.getcwd(), "results"), exist_ok=True)
         savedir = filedialog.askdirectory(title="Select Save Directory")
         with open(os.path.join(savedir,os.path.join(savedir,"fit.txt")), "w") as text_file:
             text_file.write(lmfit.printfuncs.fit_report( self.fit))

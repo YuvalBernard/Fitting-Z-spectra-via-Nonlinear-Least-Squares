@@ -1,0 +1,19 @@
+[[Fit Statistics]]
+    # fitting method   = COBYLA
+    # function evals   = 78
+    # data points      = 300
+    # variables        = 5
+    chi-square         = 0.30539378
+    reduced chi-square = 0.00103523
+    Akaike info crit   = -2056.98072
+    Bayesian info crit = -2038.46181
+##  Warning: uncertainties could not be estimated:
+[[Variables]]
+    R1a:  8 (fixed)
+    R2a:  380 (fixed)
+    Δωa:  0 (fixed)
+    R1b:  53.4916121 (init = 50.05)
+    R2b:  36857.7741 (init = 50500)
+    k:    229.352986 (init = 250.5)
+    f:    0.02530176 (init = 0.050005)
+    Δωb: -255.205701 (init = -260)

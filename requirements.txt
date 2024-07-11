@@ -2,14 +2,11 @@ numpy
 scipy
 pandas
 matplotlib
-jax
 lmfit
 pytest
 CTkMessagebox
-pillow
 CTkToolTip
+pillow
 customtkinter
 jax
-numpyro
-arviz
 openpyxl
